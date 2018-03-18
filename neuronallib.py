@@ -14,8 +14,8 @@ characters = nn.guess(pictures)
 """
 
 # TODO :
+# - rework the dataset provider (concatenate columns to the mnist dataset is heavy)
 # - find pictures that are not noise nor digits to train the 11th class
-# - train for real the model with the 11th class
 
 # libraries
 import os
@@ -149,7 +149,8 @@ class NeuronalNetwork:
         self._saver = tf.train.import_meta_graph(save_filename + "-last.meta")
 
     def train(self, data, save_filename=SAVE_FILE, learning_rate=0.0001,
-            nb_iterations=10000, report_step=100, batch_size=100, compute_time=True):
+            nb_iterations=10000, report_step=100, batch_size=100,
+            hard_examples=False, compute_time=True):
         """
         Train the network with the given data and save it in save_filename.
 
@@ -160,7 +161,9 @@ class NeuronalNetwork:
         :param nb_iterations: The number of batch to use for the training session.
         :param report_step: Run an evaluation of the accuracy each `report_step` batch.
         :param batch_size: The number of pictures in a batch.
-        :param compute_time: A boolean, true if the computation time must be displayed
+        :param hard_examples: A boolean, true if the algorithm must show the again the \
+            pictures where the recognition failed
+        :param compute_time: A boolean, true if the computation time must be displayed.
         """
         # check parameters
         assert data is not None
@@ -173,7 +176,7 @@ class NeuronalNetwork:
         y_conv = tf.get_collection("y_conv")[0]
         # loss function
         with tf.variable_scope("Loss", reuse=tf.AUTO_REUSE):
-            cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=y_conv, labels=y_))
+            cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=y_conv, labels=y_))
         # optimizer
         with tf.variable_scope("Optimizer", reuse=tf.AUTO_REUSE):
             optimizer = tf.train.AdamOptimizer(learning_rate)
@@ -182,10 +185,11 @@ class NeuronalNetwork:
         with tf.variable_scope("Evaluation", reuse=tf.AUTO_REUSE):
             is_correct = tf.equal(tf.argmax(y_, 1), tf.argmax(y_conv, 1))
             accuracy = tf.reduce_mean(tf.cast(is_correct, tf.float32))
-        with tf.variable_scope("Hardest_examples", reuse=tf.AUTO_REUSE):
-            hard_index = tf.reshape(tf.where(tf.logical_not(is_correct)), [-1])
-            hard_x = tf.gather(x, hard_index)
-            hard_y_ = tf.gather(y_, hard_index)
+        if(hard_examples):
+            with tf.variable_scope("Hardest_examples", reuse=tf.AUTO_REUSE):
+                hard_index = tf.reshape(tf.where(tf.logical_not(is_correct)), [-1])
+                hard_x = tf.gather(x, hard_index)
+                hard_y_ = tf.gather(y_, hard_index)
         # In case where we want to train the model more (save useful nodes)
         graph = tf.get_default_graph()
         graph.add_to_collection("train_step", train_step)
@@ -208,10 +212,10 @@ class NeuronalNetwork:
                 batch_y_ = np.vstack( (batch_y_, [ [0]*10+[1]*(NeuronalNetwork.NB_OUTPUTS-10) for i in range(batch_size//10) ]) )
                 # then train (this is the next line that really train the network)
                 train_step.run(feed_dict={x: batch_x, y_: batch_y_, keep_prob: 0.5}) # if 0.5 is to low, modify it
-                # train again with hard examples
-                hard_batch_x = hard_x.eval(feed_dict={x: batch_x, y_: batch_y_, keep_prob: 1})
-                hard_batch_y_ = hard_y_.eval(feed_dict={x: batch_x, y_: batch_y_, keep_prob: 1})
-                train_step.run(feed_dict={x: hard_batch_x, y_: hard_batch_y_, keep_prob: 0.5})
+                if(hard_examples):# train again with hard examples
+                    hard_batch_x = hard_x.eval(feed_dict={x: batch_x, y_: batch_y_, keep_prob: 1})
+                    hard_batch_y_ = hard_y_.eval(feed_dict={x: batch_x, y_: batch_y_, keep_prob: 1})
+                    train_step.run(feed_dict={x: hard_batch_x, y_: hard_batch_y_, keep_prob: 0.5})
                 if(i%report_step == 0):
                     train_accuracy = accuracy.eval(feed_dict={x: batch_x, y_: batch_y_, keep_prob: 1})
                     print("step %d : accuracy = %g" % (i, train_accuracy))
