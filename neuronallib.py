@@ -15,7 +15,10 @@ characters = nn.guess(pictures)
 
 # TODO :
 # - rework the dataset provider (concatenate columns to the mnist dataset is heavy)
-# - find pictures that are not noise nor digits to train the 11th class
+#   - use the datamanger.py
+#   - use emnist-byclass (use a prefix and make the end default for the 4 cases)
+#   - use the mapping file (with the correct prefix) in get_char_from_index
+# - find pictures that are not noise nor digits to train the 11th (last) class
 
 # libraries
 import os
@@ -35,7 +38,8 @@ class NeuronalNetwork:
 
     # Class attributes and methodes
     SAVE_FILE = os.path.dirname(os.path.realpath(__file__)) + "/cnn/model"
-    NB_OUTPUTS = 11
+    NB_OUTPUTS_CLASSES = 11
+    # TODO : add the prefixes here and the default end ?
 
     @staticmethod
     def get_char_from_index_list(index_list):
@@ -48,7 +52,7 @@ class NeuronalNetwork:
         :return: A list of characters "read" by the network.
         """
         def get_char_from_index(index):
-            if(index==10):
+            if(index>=NeuronalNetwork.NB_OUTPUTS_CLASSES-1):
                 return ' ' # in case the character isn't recognized
             return chr(index + ord('0'))
         return list(map(get_char_from_index, index_list))
@@ -95,7 +99,7 @@ class NeuronalNetwork:
         # inputs of the graph
         with tf.variable_scope("Inputs", reuse=tf.AUTO_REUSE):
             x = tf.placeholder(tf.float32, [None, 784]) # 28x28 = 784
-            y_ = tf.placeholder(tf.float32, [None, NeuronalNetwork.NB_OUTPUTS]) # 10 digits + 1 nothing
+            y_ = tf.placeholder(tf.float32, [None, NeuronalNetwork.NB_OUTPUTS_CLASSES]) # 10 digits + 1 nothing
         # the first hidden/convolutional layer
         with tf.variable_scope("First_layer", reuse=tf.AUTO_REUSE):
             W_conv1 = weight_variable([5, 5, 1, 32])
@@ -121,8 +125,8 @@ class NeuronalNetwork:
             h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
         # last layer
         with tf.variable_scope("Last_layer", reuse=tf.AUTO_REUSE):
-            W_fc2 = weight_variable([1024, NeuronalNetwork.NB_OUTPUTS])
-            b_fc2 = bias_variable([NeuronalNetwork.NB_OUTPUTS])
+            W_fc2 = weight_variable([1024, NeuronalNetwork.NB_OUTPUTS_CLASSES])
+            b_fc2 = bias_variable([NeuronalNetwork.NB_OUTPUTS_CLASSES])
             y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
             y_output = tf.argmax(y_conv, 1)
             probability_output = tf.reduce_max(tf.nn.softmax(y_conv), axis=[1])
@@ -204,12 +208,12 @@ class NeuronalNetwork:
             if(compute_time):
                 start_time = time.time()
             for i in range(nb_iterations):
-                batch_x, batch_y_ = data.train.next_batch(batch_size)
+                batch_x, batch_y_ = data.train.next_batch(batch_size, shuffle=False)
                 # modify the labels from 10 to 11
-                batch_y_ = np.hstack( (batch_y_, [[0]*(NeuronalNetwork.NB_OUTPUTS-10) for i in range(batch_size)]) )
+                batch_y_ = np.hstack( (batch_y_, [[0]*(NeuronalNetwork.NB_OUTPUTS_CLASSES-10) for i in range(batch_size)]) )
                 # add some noisy pictures to the batch for the 11th class
                 batch_x = np.vstack( (batch_x, [ generate_noise_vector() for i in range(batch_size//10) ]) )
-                batch_y_ = np.vstack( (batch_y_, [ [0]*10+[1]*(NeuronalNetwork.NB_OUTPUTS-10) for i in range(batch_size//10) ]) )
+                batch_y_ = np.vstack( (batch_y_, [ [0]*10+[1]*(NeuronalNetwork.NB_OUTPUTS_CLASSES-10) for i in range(batch_size//10) ]) )
                 # then train (this is the next line that really train the network)
                 train_step.run(feed_dict={x: batch_x, y_: batch_y_, keep_prob: 0.5}) # if 0.5 is to low, modify it
                 if(hard_examples):# train again with hard examples
@@ -223,10 +227,10 @@ class NeuronalNetwork:
             # evaluation
             images = data.test.images
             labels = data.test.labels # modify the labels to have 11 output labels
-            labels = np.hstack( (labels, [[0]*(NeuronalNetwork.NB_OUTPUTS-10) for i in range(labels.shape[0])]) )
+            labels = np.hstack( (labels, [[0]*(NeuronalNetwork.NB_OUTPUTS_CLASSES-10) for i in range(labels.shape[0])]) )
             # and add noisy pictures in the evaluation set
             images = np.vstack( (images, [ generate_noise_vector() for i in range(100) ]) )
-            labels = np.vstack( (labels, [ [0]*10+[1]*(NeuronalNetwork.NB_OUTPUTS-10) for i in range(100) ]) )
+            labels = np.vstack( (labels, [ [0]*10+[1]*(NeuronalNetwork.NB_OUTPUTS_CLASSES-10) for i in range(100) ]) )
             # then evaluate
             print("Training completed, evaluation...")
             print("Last accuracy =", accuracy.eval(feed_dict={x: images, y_: labels, keep_prob: 1}))

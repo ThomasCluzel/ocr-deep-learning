@@ -62,3 +62,4 @@ if __name__ == "__main__":
     im = vector2picture(vector)
     vect = picture2vector(im)
     print(sum(vector-vect)<0.0001 and "ok" or "ko")
+    

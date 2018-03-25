@@ -1,6 +1,6 @@
 # folders
 cnn*/*
-MNIST_data/*
+*_data/*
 env/*
 __pycache__/*
 .vscode/
