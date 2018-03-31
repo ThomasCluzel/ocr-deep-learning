@@ -14,18 +14,18 @@ characters = nn.guess(pictures)
 """
 
 # TODO :
-# - rework the dataset provider (concatenate columns to the mnist dataset is heavy)
+# - rework the dataset provider
 #   - use the datamanger.py
-#   - use emnist-byclass (use a prefix and make the end default for the 4 cases)
+#   - use emnist-byclass (use a prefix and a suffix for the 4 cases)
 #   - use the mapping file (with the correct prefix) in get_char_from_index
-# - find pictures that are not noise nor digits to train the 11th (last) class
+# - find pictures that are not noise nor digits to train the last class
+# - generate another dataset for OCR
 
 # libraries
 import os
 import time
 import numpy as np
 import tensorflow as tf
-from imageconvert import generate_noise_vector
 
 
 class NeuronalNetwork:
@@ -34,11 +34,16 @@ class NeuronalNetwork:
     It can create (from scratch) a neuronal netwok, load an already
     existing network, use a network to guess a character, train a network
     and save a network.
+
+    Attributes:
+        - self._graph: tf.Graph, the network itself
+        - self._saver: tf.train.Saver, the object to store the graph in files
+        - self._save_filename: str, the name of the file within the graph is saved
     """
 
     # Class attributes and methodes
     SAVE_FILE = os.path.dirname(os.path.realpath(__file__)) + "/cnn/model"
-    NB_OUTPUTS_CLASSES = 11
+    NB_OUTPUTS_CLASSES = 10
     # TODO : add the prefixes here and the default end ?
 
     @staticmethod
@@ -75,6 +80,7 @@ class NeuronalNetwork:
             # load the saved network
             self.load(save_filename)
             self._graph = tf.get_default_graph()
+            self._save_filename = save_filename
 
     def _create_network(self):
         """
@@ -99,7 +105,7 @@ class NeuronalNetwork:
         # inputs of the graph
         with tf.variable_scope("Inputs", reuse=tf.AUTO_REUSE):
             x = tf.placeholder(tf.float32, [None, 784]) # 28x28 = 784
-            y_ = tf.placeholder(tf.float32, [None, NeuronalNetwork.NB_OUTPUTS_CLASSES]) # 10 digits + 1 nothing
+            y_ = tf.placeholder(tf.float32, [None, NeuronalNetwork.NB_OUTPUTS_CLASSES])
         # the first hidden/convolutional layer
         with tf.variable_scope("First_layer", reuse=tf.AUTO_REUSE):
             W_conv1 = weight_variable([5, 5, 1, 32])
@@ -151,32 +157,24 @@ class NeuronalNetwork:
         if(save_filename is None):
             raise ValueError("Error: the file name is empty")
         self._saver = tf.train.import_meta_graph(save_filename + "-last.meta")
-
-    def train(self, data, save_filename=SAVE_FILE, learning_rate=0.0001,
-            nb_iterations=10000, report_step=100, batch_size=100,
-            hard_examples=False, compute_time=True):
+    
+    def set_training_params(self, learning_rate=0.0001, hard_examples=False, save_filename=SAVE_FILE):
         """
-        Train the network with the given data and save it in save_filename.
+        Build the training part of the network.
 
-        :param data: A set of data to train the network.
+        :param learning_rate: The learning rate of the network.
+        :param hard_examples: A boolean, true if the algorithm must show again the \
+            pictures where the recognition failed
         :param save_filename: The beginning of a filename with directory. \
             example : current_dir + "cnn/model"
-        :param learning_rate: The learning rate of the network.
-        :param nb_iterations: The number of batch to use for the training session.
-        :param report_step: Run an evaluation of the accuracy each `report_step` batch.
-        :param batch_size: The number of pictures in a batch.
-        :param hard_examples: A boolean, true if the algorithm must show the again the \
-            pictures where the recognition failed
-        :param compute_time: A boolean, true if the computation time must be displayed.
         """
-        # check parameters
-        assert data is not None
+        #check params
         assert save_filename is not None
+        self._save_filename = save_filename
         self._graph.as_default()
         # get useful tensors
         x = tf.get_collection("x")[0]
         y_ = tf.get_collection("y_")[0]
-        keep_prob = tf.get_collection("keep_prob")[0]
         y_conv = tf.get_collection("y_conv")[0]
         # loss function
         with tf.variable_scope("Loss", reuse=tf.AUTO_REUSE):
@@ -194,49 +192,65 @@ class NeuronalNetwork:
                 hard_index = tf.reshape(tf.where(tf.logical_not(is_correct)), [-1])
                 hard_x = tf.gather(x, hard_index)
                 hard_y_ = tf.gather(y_, hard_index)
-        # In case where we want to train the model more (save useful nodes)
+        # save useful tensors
         graph = tf.get_default_graph()
         graph.add_to_collection("train_step", train_step)
         graph.add_to_collection("accuracy", accuracy)
+        if(hard_examples):
+            graph.add_to_collection("hard_x", hard_x)
+            graph.add_to_collection("hard_y_", hard_y_)
 
-        # the session to train the model
+        # initialize the network to save it
         init = tf.global_variables_initializer()
         saver = tf.train.Saver()
         with tf.Session() as sess:
             sess.run(init)
+            saver.save(sess, save_filename+"-last")
+        self._saver = saver
+    
+    def train(self, data, nb_iterations=10000, report_step=100, batch_size=100):
+        """
+        Train the network with the given data and save it.
+
+        :param data: A set of data to train the network.
+        :param nb_iterations: The number of batch to use for the training session.
+        :param report_step: Run an evaluation of the accuracy each `report_step` batch.
+        :param batch_size: The number of pictures in a batch.
+        """
+        # check params
+        assert data is not None
+        # get useful tensors
+        x = tf.get_collection("x")[0]
+        y_ = tf.get_collection("y_")[0]
+        keep_prob = tf.get_collection("keep_prob")[0]
+        train_step = tf.get_collection("train_step")[0]
+        accuracy = tf.get_collection("accuracy")[0]
+        hard_examples = (len(tf.get_collection("hard_x")) > 0) # hard_examples
+        if(hard_examples):
+            hard_x = tf.get_collection("hard_x")[0]
+            hard_y_ = tf.get_collection("hard_y_")[0]
+        # Train the network in a session
+        with tf.Session() as sess:
+            self._saver.restore(sess, self._save_filename+"-last")
             print("Training started")
-            if(compute_time):
-                start_time = time.time()
+            start_time = time.time()
             for i in range(nb_iterations):
                 batch_x, batch_y_ = data.train.next_batch(batch_size, shuffle=False)
-                # modify the labels from 10 to 11
-                batch_y_ = np.hstack( (batch_y_, [[0]*(NeuronalNetwork.NB_OUTPUTS_CLASSES-10) for i in range(batch_size)]) )
-                # add some noisy pictures to the batch for the 11th class
-                batch_x = np.vstack( (batch_x, [ generate_noise_vector() for i in range(batch_size//10) ]) )
-                batch_y_ = np.vstack( (batch_y_, [ [0]*10+[1]*(NeuronalNetwork.NB_OUTPUTS_CLASSES-10) for i in range(batch_size//10) ]) )
-                # then train (this is the next line that really train the network)
                 train_step.run(feed_dict={x: batch_x, y_: batch_y_, keep_prob: 0.5}) # if 0.5 is to low, modify it
-                if(hard_examples):# train again with hard examples
+                if(hard_examples): # train again with hard examples
                     hard_batch_x = hard_x.eval(feed_dict={x: batch_x, y_: batch_y_, keep_prob: 1})
                     hard_batch_y_ = hard_y_.eval(feed_dict={x: batch_x, y_: batch_y_, keep_prob: 1})
                     train_step.run(feed_dict={x: hard_batch_x, y_: hard_batch_y_, keep_prob: 0.5})
                 if(i%report_step == 0):
                     train_accuracy = accuracy.eval(feed_dict={x: batch_x, y_: batch_y_, keep_prob: 1})
                     print("step %d : accuracy = %g" % (i, train_accuracy))
-                    saver.save(sess, save_filename, global_step=i)
+                    self._saver.save(sess, self._save_filename, global_step=i)
             # evaluation
-            images = data.test.images
-            labels = data.test.labels # modify the labels to have 11 output labels
-            labels = np.hstack( (labels, [[0]*(NeuronalNetwork.NB_OUTPUTS_CLASSES-10) for i in range(labels.shape[0])]) )
-            # and add noisy pictures in the evaluation set
-            images = np.vstack( (images, [ generate_noise_vector() for i in range(100) ]) )
-            labels = np.vstack( (labels, [ [0]*10+[1]*(NeuronalNetwork.NB_OUTPUTS_CLASSES-10) for i in range(100) ]) )
-            # then evaluate
             print("Training completed, evaluation...")
-            print("Last accuracy =", accuracy.eval(feed_dict={x: images, y_: labels, keep_prob: 1}))
-            print("Model saved to:", saver.save(sess, save_filename+"-last"))
-            if(compute_time):
-                print("Executed in: %.2f seconds"%(time.time() - start_time))
+            print("Last accuracy =", accuracy.eval(feed_dict={x: data.test.images, y_: data.test.labels, keep_prob: 1}))
+            print("Model saved to:", self._saver.save(sess, self._save_filename+"-last"))
+            print("Executed in: %.2f seconds"%(time.time() - start_time))
+
 
     def guess(self, pictures, save_filename=SAVE_FILE):
         """
@@ -264,6 +278,7 @@ class NeuronalNetwork:
             probability_list = probability_output.eval(feed_dict={x: pictures, keep_prob: 1})
         return (NeuronalNetwork.get_char_from_index_list(index_list), probability_list)
 
+# Functions to quick test the class
 def create_and_train_model():
     """
     Create a neuronal network and train it with default data.
@@ -273,8 +288,8 @@ def create_and_train_model():
     from tensorflow.examples.tutorials.mnist import input_data
     mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
     # train the network
-    #nn.train(mnist, report_step=1000)
-    nn.train(mnist, learning_rate=0.001, nb_iterations=100, report_step=50)
+    nn.set_training_params(learning_rate=0.001) # fast
+    nn.train(mnist, 100, 50)
 
 def test_model(nb_test=20):
     # load the graph
@@ -283,8 +298,8 @@ def test_model(nb_test=20):
     from tensorflow.examples.tutorials.mnist import input_data
     mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
     # test some pictures
-    pict = [ mnist.test.images[i] for i in range(nb_test-1) ] + [ generate_noise_vector() ]
-    correct = NeuronalNetwork.get_char_from_index_list([ mnist.test.labels[i].tolist().index(1) for i in range(nb_test-1) ]) + [' ']
+    pict = [ mnist.test.images[i] for i in range(nb_test) ]
+    correct = NeuronalNetwork.get_char_from_index_list([ mnist.test.labels[i].tolist().index(1) for i in range(nb_test) ])
     numbers, prob = nn.guess(pict)
     rate = sum(list(map(lambda x, y: x==y and 1 or 0, numbers, correct))) / nb_test
     print("Correct rate (%d tries) is: %f" % (nb_test, rate), "\n  Nums  ==>", numbers, "\n  Prob  ==>", prob.round(2))
