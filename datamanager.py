@@ -9,6 +9,7 @@ see line 111 and delete `order='F'` which means column-major (Fortran style)
 """
 
 import gzip
+import os
 import numpy
 
 from tensorflow.contrib.learn.python.learn.datasets.base import Datasets
@@ -179,29 +180,29 @@ class DataSet(object):
       return self._images[start:end], self._labels[start:end]
 
 
-def read_data_sets(train_dir="MNIST_data/",
-                   train_images = 'train-images-idx3-ubyte.gz',
-                   train_labels = 'train-labels-idx1-ubyte.gz',
-                   test_images = 't10k-images-idx3-ubyte.gz',
-                   test_labels = 't10k-labels-idx1-ubyte.gz',
+def read_data_sets(train_dir="EMNIST_data",
+                   train_images = 'emnist-byclass-train-images-idx3-ubyte.gz',
+                   train_labels = 'emnist-byclass-train-labels-idx1-ubyte.gz',
+                   test_images = 'emnist-byclass-test-images-idx3-ubyte.gz',
+                   test_labels = 'emnist-byclass-test-labels-idx1-ubyte.gz',
                    num_classes=10,
                    one_hot=False,
                    dtype=dtypes.float32,
                    reshape=True,
-                   validation_size=5000):
-  local_file = train_dir + "/" + train_images
+                   validation_size=5):
+  local_file = os.path.join(train_dir, train_images)
   with open(local_file, 'rb') as f:
     train_images = extract_images(f)
 
-  local_file = train_dir + "/" +  train_labels
+  local_file = os.path.join(train_dir, train_labels)
   with open(local_file, 'rb') as f:
     train_labels = extract_labels(f, one_hot=one_hot, num_classes=num_classes)
 
-  local_file = train_dir + "/" + test_images
+  local_file = os.path.join(train_dir, test_images)
   with open(local_file, 'rb') as f:
     test_images = extract_images(f)
 
-  local_file = train_dir + "/" + test_labels
+  local_file = os.path.join(train_dir, test_labels)
   with open(local_file, 'rb') as f:
     test_labels = extract_labels(f, one_hot=one_hot, num_classes=num_classes)
 
@@ -227,13 +228,27 @@ def read_data_sets(train_dir="MNIST_data/",
 if __name__ == "__main__":
     # Some tests
     from imageconvert import view_vector_as_picture
-    data = read_data_sets(train_dir = "EMNIST_data",
-                            train_images = 'emnist-byclass-train-images-idx3-ubyte.gz',
-                            train_labels = 'emnist-byclass-train-labels-idx1-ubyte.gz',
-                            test_images = 'emnist-byclass-test-images-idx3-ubyte.gz',
-                            test_labels = 'emnist-byclass-test-labels-idx1-ubyte.gz',
-                            num_classes = 62,
-                            one_hot=True)
-    for i in range(9):
-        print("i=", i, " index=", data.train.labels[i].tolist().index(1))
-        view_vector_as_picture(data.train.images[i])
+    choix = int(input("1 - Tester EMNIST\n2 - Tester OCR\n* - Quitter\n"))
+    if(choix == 1):
+      data = read_data_sets(train_dir = "EMNIST_data",
+                              train_images = 'emnist-byclass-train-images-idx3-ubyte.gz',
+                              train_labels = 'emnist-byclass-train-labels-idx1-ubyte.gz',
+                              test_images = 'emnist-byclass-test-images-idx3-ubyte.gz',
+                              test_labels = 'emnist-byclass-test-labels-idx1-ubyte.gz',
+                              num_classes = 62,
+                              one_hot=True)
+      for i in range(9):
+          print("i=", i, " index=", data.train.labels[i].tolist().index(1))
+          view_vector_as_picture(data.train.images[i])
+    elif(choix == 2):
+      data = read_data_sets(train_dir = "OCR_data",
+                              train_images = 'ocr-train-images-idx3-ubyte.gz',
+                              train_labels = 'ocr-train-labels-idx1-ubyte.gz',
+                              test_images = 'ocr-test-images-idx3-ubyte.gz',
+                              test_labels = 'ocr-test-labels-idx1-ubyte.gz',
+                              num_classes = 63,
+                              one_hot=True)
+      for i in range(3):
+          print("i=", i, " index=", data.train.labels[i].tolist().index(1))
+          view_vector_as_picture(data.train.images[i])
+        

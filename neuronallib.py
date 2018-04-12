@@ -14,18 +14,16 @@ characters = nn.guess(pictures)
 """
 
 # TODO :
-# - rework the dataset provider
-#   - use the datamanger.py
-#   - use emnist-byclass (use a prefix and a suffix for the 4 cases)
-#   - use the mapping file (with the correct prefix) in get_char_from_index
-# - find pictures that are not noise nor digits to train the last class
-# - generate another dataset for OCR
+# - pytest all files
+# - merge with the detection part and test
 
 # libraries
 import os
 import time
 import numpy as np
 import tensorflow as tf
+
+import datamanager
 
 
 class NeuronalNetwork:
@@ -38,49 +36,81 @@ class NeuronalNetwork:
     Attributes:
         - self._graph: tf.Graph, the network itself
         - self._saver: tf.train.Saver, the object to store the graph in files
-        - self._save_filename: str, the name of the file within the graph is saved
+        - self._save_filename: str, the name of the file (without extension) within the graph is saved
+        - self._nb_output_classes: int, th number of output classes (number of elements recognisable)
     """
 
-    # Class attributes and methodes
-    SAVE_FILE = os.path.dirname(os.path.realpath(__file__)) + "/cnn/model"
-    NB_OUTPUTS_CLASSES = 10
-    # TODO : add the prefixes here and the default end ?
+    # Class attributes (default values) and methodes
+    SAVE_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("cnn", "model"))
+    NB_OUTPUTS_CLASSES = 63
+    DATABASE_DIR = "OCR_data"
+    DATABASE_NAME = "ocr"
 
     @staticmethod
-    def get_char_from_index_list(index_list):
+    def get_char_from_index_list(index_list, dirname=DATABASE_DIR, filename=DATABASE_NAME):
         """
         Returns the list of character corresponding to the index
         in the index list compute by the neuronal network.
 
         :param index_list: List return by the evaluation of the
             output node of the graph.
+        :param dirname: a str, the directory containing the database files.
+        :param filename: a str, the begining of the names of all files of the database.
         :return: A list of characters "read" by the network.
         """
-        def get_char_from_index(index):
-            if(index>=NeuronalNetwork.NB_OUTPUTS_CLASSES-1):
-                return ' ' # in case the character isn't recognized
-            return chr(index + ord('0'))
-        return list(map(get_char_from_index, index_list))
+        with open(os.path.join(dirname, filename) + "-mapping.txt", 'r') as f:
+            couples = [ ligne.split(' ') for ligne in f.read().split('\n') ]
+        couples = [ (int(a), int(b)) for a,b in couples ]
+        return [ chr([ b for a,b in couples if a==index][0]) for index in index_list ]
 
-    def __init__(self, save_filename=None):
+    @staticmethod
+    def load_data(dirname=DATABASE_DIR, filename=DATABASE_NAME, nb_classes=NB_OUTPUTS_CLASSES):
+        """
+        Returns a DataSet object loading from a database in MNIST format.
+
+        :param dirname: a str, the directory containing the database files.
+        :param filename: a str, the begining of the names of all files of the database.
+        :return: a DateSet
+        """
+        return datamanager.read_data_sets(train_dir = dirname,
+                              train_images = filename+'-train-images-idx3-ubyte.gz',
+                              train_labels = filename+'-train-labels-idx1-ubyte.gz',
+                              test_images = filename+'-test-images-idx3-ubyte.gz',
+                              test_labels = filename+'-test-labels-idx1-ubyte.gz',
+                              num_classes = nb_classes,
+                              one_hot=True)
+
+    def __init__(self, learning_rate_or_save_filename=0.0001, hard_examples=False,
+            nb_output_classes=NB_OUTPUTS_CLASSES, save_filename=SAVE_FILE):
         """
         Load the network saved in the given file if any
-        or generate a network to train.
+        or generate a network to train with given parameters.
 
-        :param save_filename: The name of the file containing the saved
-            network to load. If None a new graph is created.
-        :type save_filename: str
+        First case: Create a network from scratch
+            nn = NeuronalNetwork() # with default parameters
+            nn = NeuronalNetwork(0.001, True) # learning rate = 0.001 and hard examples activated
+        Second case: Load a network
+            nn = NeuronalNetwork(NeuronalNetwork.SAVE_FILE) # load a graph stored in the default directory
+
+        :param learning_rate_or_save_filename: In the first case: a float, the learning rate.
+            In the second case: a str, the name of the file containing the saved network to load.
+        :param hard_examples: only in the first case: a boolean, True if the network
+            shall use the hard examples learning method
+        :param save_filename: only in the first case: a str, the path to save the network.
         """
-        # load or generate ?
-        if save_filename is None:
+        # create or load ?
+        if(not isinstance(learning_rate_or_save_filename, str)):
             # Create the network
+            self._nb_output_classes = nb_output_classes
+            self._save_filename = save_filename
             self._graph = tf.Graph()
             self._create_network()
+            self._set_training_params(learning_rate_or_save_filename, hard_examples)
         else:
             # load the saved network
-            self.load(save_filename)
+            self._save_filename = learning_rate_or_save_filename
+            self._load()
             self._graph = tf.get_default_graph()
-            self._save_filename = save_filename
 
     def _create_network(self):
         """
@@ -105,7 +135,7 @@ class NeuronalNetwork:
         # inputs of the graph
         with tf.variable_scope("Inputs", reuse=tf.AUTO_REUSE):
             x = tf.placeholder(tf.float32, [None, 784]) # 28x28 = 784
-            y_ = tf.placeholder(tf.float32, [None, NeuronalNetwork.NB_OUTPUTS_CLASSES])
+            y_ = tf.placeholder(tf.float32, [None, self._nb_output_classes])
         # the first hidden/convolutional layer
         with tf.variable_scope("First_layer", reuse=tf.AUTO_REUSE):
             W_conv1 = weight_variable([5, 5, 1, 32])
@@ -131,8 +161,8 @@ class NeuronalNetwork:
             h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
         # last layer
         with tf.variable_scope("Last_layer", reuse=tf.AUTO_REUSE):
-            W_fc2 = weight_variable([1024, NeuronalNetwork.NB_OUTPUTS_CLASSES])
-            b_fc2 = bias_variable([NeuronalNetwork.NB_OUTPUTS_CLASSES])
+            W_fc2 = weight_variable([1024, self._nb_output_classes])
+            b_fc2 = bias_variable([self._nb_output_classes])
             y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
             y_output = tf.argmax(y_conv, 1)
             probability_output = tf.reduce_max(tf.nn.softmax(y_conv), axis=[1])
@@ -146,31 +176,25 @@ class NeuronalNetwork:
         graph.add_to_collection("y_output", y_output)
         graph.add_to_collection("probability_output", probability_output)
 
-    def load(self, save_filename=SAVE_FILE):
+    def _load(self):
         """
-        Load a network saved in a file.
+        Load a network saved in the file self._save_filename.
 
         :param save_filename: The name of the file containing the saved
             network to load.
         :type save_filename: str
         """
-        if(save_filename is None):
-            raise ValueError("Error: the file name is empty")
-        self._saver = tf.train.import_meta_graph(save_filename + "-last.meta")
+        self._saver = tf.train.import_meta_graph(self._save_filename + "-last.meta")
     
-    def set_training_params(self, learning_rate=0.0001, hard_examples=False, save_filename=SAVE_FILE):
+    def _set_training_params(self, learning_rate=0.0001, hard_examples=False):
         """
         Build the training part of the network.
 
         :param learning_rate: The learning rate of the network.
         :param hard_examples: A boolean, true if the algorithm must show again the \
             pictures where the recognition failed
-        :param save_filename: The beginning of a filename with directory. \
-            example : current_dir + "cnn/model"
         """
-        #check params
-        assert save_filename is not None
-        self._save_filename = save_filename
+        #check the graph has no training part
         self._graph.as_default()
         # get useful tensors
         x = tf.get_collection("x")[0]
@@ -205,7 +229,7 @@ class NeuronalNetwork:
         saver = tf.train.Saver()
         with tf.Session() as sess:
             sess.run(init)
-            saver.save(sess, save_filename+"-last")
+            saver.save(sess, self._save_filename+"-last")
         self._saver = saver
     
     def train(self, data, nb_iterations=10000, report_step=100, batch_size=100):
@@ -218,7 +242,8 @@ class NeuronalNetwork:
         :param batch_size: The number of pictures in a batch.
         """
         # check params
-        assert data is not None
+        if(data is None):
+            raise RuntimeError("Error: You did not specify data to train the network with.")
         # get useful tensors
         x = tf.get_collection("x")[0]
         y_ = tf.get_collection("y_")[0]
@@ -251,18 +276,16 @@ class NeuronalNetwork:
             print("Model saved to:", self._saver.save(sess, self._save_filename+"-last"))
             print("Executed in: %.2f seconds"%(time.time() - start_time))
 
-
-    def guess(self, pictures, save_filename=SAVE_FILE):
+    def guess(self, pictures):
         """
         Return the list of characters corresponding to the characters
         written on the pictures.
 
         :param pictures: A set of 784 dimensions vectors (28x28 grayscale pictures).
-        :param save_filename: The file (directory/file) of the graph.
         """
         # check parameters
-        assert isinstance(pictures, list)
-        assert save_filename is not None
+        if(not isinstance(pictures, list)):
+            raise ValueError("Error: pictures must be a list of pictures")
         self._graph.as_default()
         # get the interresting tensors
         x = tf.get_collection("x")[0]
@@ -273,41 +296,7 @@ class NeuronalNetwork:
         index_list = None
         probability_list = None
         with tf.Session() as sess:
-            self._saver.restore(sess, save_filename+"-last")
+            self._saver.restore(sess, self._save_filename+"-last")
             index_list = y_output.eval(feed_dict={x: pictures, keep_prob: 1})
             probability_list = probability_output.eval(feed_dict={x: pictures, keep_prob: 1})
         return (NeuronalNetwork.get_char_from_index_list(index_list), probability_list)
-
-# Functions to quick test the class
-def create_and_train_model():
-    """
-    Create a neuronal network and train it with default data.
-    """
-    nn = NeuronalNetwork()
-    # download MNIST data
-    from tensorflow.examples.tutorials.mnist import input_data
-    mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
-    # train the network
-    nn.set_training_params(learning_rate=0.001) # fast
-    nn.train(mnist, 100, 50)
-
-def test_model(nb_test=20):
-    # load the graph
-    nn = NeuronalNetwork(NeuronalNetwork.SAVE_FILE)
-    # download MNIST data
-    from tensorflow.examples.tutorials.mnist import input_data
-    mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
-    # test some pictures
-    pict = [ mnist.test.images[i] for i in range(nb_test) ]
-    correct = NeuronalNetwork.get_char_from_index_list([ mnist.test.labels[i].tolist().index(1) for i in range(nb_test) ])
-    numbers, prob = nn.guess(pict)
-    rate = sum(list(map(lambda x, y: x==y and 1 or 0, numbers, correct))) / nb_test
-    print("Correct rate (%d tries) is: %f" % (nb_test, rate), "\n  Nums  ==>", numbers, "\n  Prob  ==>", prob.round(2))
-
-if __name__ == "__main__":
-    print("1 - create and train a new network model", "2 - test a saved model", "other - exit", sep="\n")
-    check = int(input())
-    if(check == 1):
-        create_and_train_model()
-    elif(check == 2):
-        test_model()
