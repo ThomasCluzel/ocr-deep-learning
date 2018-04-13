@@ -13,7 +13,7 @@ def generate_noise_vector(size=(28, 28)):
     Generate a random vector.
 
     :param size: tuple (width, height)
-    :return: a vector generated randomly
+    :return: a vector generated randomly with values in [0,1[
     """
     return np.random.random_sample((size[0]*size[1],))
 
@@ -53,13 +53,3 @@ def view_vector_as_picture(vector, size=(28, 28)):
     """
     im = vector2picture(vector, size)
     im.show()
-
-
-if __name__ == "__main__":
-    # Some tests
-    vector = generate_noise_vector()
-    view_vector_as_picture(vector)
-    im = vector2picture(vector)
-    vect = picture2vector(im)
-    print(sum(vector-vect)<0.0001 and "ok" or "ko")
-    

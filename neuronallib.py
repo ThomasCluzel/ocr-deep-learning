@@ -14,7 +14,6 @@ characters = nn.guess(pictures)
 """
 
 # TODO :
-# - pytest all files
 # - merge with the detection part and test
 
 # libraries

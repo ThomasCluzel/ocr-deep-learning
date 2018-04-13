@@ -226,29 +226,16 @@ def read_data_sets(train_dir="EMNIST_data",
   return Datasets(train=train, validation=validation, test=test)
 
 if __name__ == "__main__":
-    # Some tests
+    # View the data
     from imageconvert import view_vector_as_picture
-    choix = int(input("1 - Tester EMNIST\n2 - Tester OCR\n* - Quitter\n"))
-    if(choix == 1):
-      data = read_data_sets(train_dir = "EMNIST_data",
-                              train_images = 'emnist-byclass-train-images-idx3-ubyte.gz',
-                              train_labels = 'emnist-byclass-train-labels-idx1-ubyte.gz',
-                              test_images = 'emnist-byclass-test-images-idx3-ubyte.gz',
-                              test_labels = 'emnist-byclass-test-labels-idx1-ubyte.gz',
-                              num_classes = 62,
-                              one_hot=True)
-      for i in range(9):
-          print("i=", i, " index=", data.train.labels[i].tolist().index(1))
-          view_vector_as_picture(data.train.images[i])
-    elif(choix == 2):
-      data = read_data_sets(train_dir = "OCR_data",
-                              train_images = 'ocr-train-images-idx3-ubyte.gz',
-                              train_labels = 'ocr-train-labels-idx1-ubyte.gz',
-                              test_images = 'ocr-test-images-idx3-ubyte.gz',
-                              test_labels = 'ocr-test-labels-idx1-ubyte.gz',
-                              num_classes = 63,
-                              one_hot=True)
-      for i in range(3):
-          print("i=", i, " index=", data.train.labels[i].tolist().index(1))
-          view_vector_as_picture(data.train.images[i])
+    data = read_data_sets(train_dir = "OCR_data",
+                            train_images = 'ocr-train-images-idx3-ubyte.gz',
+                            train_labels = 'ocr-train-labels-idx1-ubyte.gz',
+                            test_images = 'ocr-test-images-idx3-ubyte.gz',
+                            test_labels = 'ocr-test-labels-idx1-ubyte.gz',
+                            num_classes = 63,
+                            one_hot=True)
+    for i in range(3):
+        print("i=", i, " index=", data.train.labels[i].tolist().index(1))
+        view_vector_as_picture(data.train.images[i])
         

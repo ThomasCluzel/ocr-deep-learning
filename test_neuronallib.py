@@ -48,7 +48,7 @@ class TestNeuronalNetwork:
         shutil.rmtree(self.tmp_cnn_dir_name)
 
     def test_network_creation(self):
-        nn = NeuronalNetwork(0.001, nb_output_classes=63, \
+        nn = NeuronalNetwork(0.001, hard_examples=True, nb_output_classes=63, \
             save_filename=os.path.join(self.tmp_cnn_dir_name, "model")) # high learning rate, fast training
         assert nn is not None
 
