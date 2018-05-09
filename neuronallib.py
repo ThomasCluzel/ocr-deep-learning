@@ -10,7 +10,7 @@ to guess characters written on 28x28 pixels pictures.
 Use (example):
 from neuronallib import NeuronalNetwork
 nn = NeuronalNetwork(NeuronalNetwork.SAVE_FILE)
-characters = nn.guess(pictures)
+characters, probabilities = nn.guess(pictures)
 """
 
 # TODO :
@@ -299,3 +299,13 @@ class NeuronalNetwork:
             index_list = y_output.eval(feed_dict={x: pictures, keep_prob: 1})
             probability_list = probability_output.eval(feed_dict={x: pictures, keep_prob: 1})
         return (NeuronalNetwork.get_char_from_index_list(index_list), probability_list)
+
+if __name__ == "__main__":
+    data = NeuronalNetwork.load_data()
+    # Train the network
+    # nn = NeuronalNetwork() # set up the network with default parameters
+    # nn.train(data)
+    # Test the result of the training
+    # nn = NeuronalNetwork(NeuronalNetwork.SAVE_FILE)
+    # characters, _ = nn.guess([ data.test.images[i] for i in range(10) ])
+    # print(characters) # '0' to '9'

@@ -5,7 +5,8 @@ relative to the imageconvert module.
 """
 
 from imageconvert import generate_noise_vector, \
-    vector2picture, picture2vector, view_vector_as_picture
+    vector2picture, picture2vector, view_vector_as_picture, \
+    isPictureFile
 
 def test_generate_noise_vector():
     size = (10,10)
@@ -26,3 +27,8 @@ def test_picture_vector():
 #def test_view_vector_as_picture():
 #    vect = generate_noise_vector()
 #    view_vector_as_picture(vect)
+
+def test_isPictureFile():
+    assert not isPictureFile("imageconvert.py")
+    assert isPictureFile("icon.ico")
+    assert isPictureFile("test_pict.jpg")

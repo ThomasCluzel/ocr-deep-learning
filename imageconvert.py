@@ -53,3 +53,14 @@ def view_vector_as_picture(vector, size=(28, 28)):
     """
     im = vector2picture(vector, size)
     im.show()
+
+def isPictureFile(filename):
+    """
+    Return True if filename is a readable picture file.
+    """
+    try:
+        Image.open(filename)
+        return True
+    except:
+        pass
+    return False

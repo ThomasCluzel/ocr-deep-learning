@@ -3,4 +3,9 @@ cnn*/*
 *_data/*
 env/*
 __pycache__/*
+.py*
 .vscode/
+
+# files other than code
+*.jpg
+*.ico
