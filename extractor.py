@@ -83,10 +83,10 @@ class Slicer:
         #creation of the white result image
         result = Image.new("L", (maxi, maxi), 255)
         #crop the bounding box in the original image
-        image = image.crop((self.iMin, self.jMin, self.iMax+1, self.jMax+1))
+        image = image.crop((self.iMin, self.jMin, self.iMax+2, self.jMax+2))
         #paste the character in the result image
-        result.paste(image, (int(maxi/2 - w/2 - 1), int(maxi/2-h/2 - 1),
-                        int(maxi/2-w/2+w), int(maxi/2-h/2+h)))
+        result.paste(image, (int(maxi/2 - w/2), int(maxi/2-h/2),
+                             int(maxi/2-w/2+w)+2, int(maxi/2-h/2+h)+2))
         #resize the result image with the same proportion as in the original
         result.thumbnail((size, size), Image.ANTIALIAS)
         return result
