@@ -13,8 +13,6 @@ nn = NeuronalNetwork(NeuronalNetwork.SAVE_FILE)
 characters, probabilities = nn.guess(pictures)
 """
 
-# TODO :
-# - merge with the detection part and test
 
 # libraries
 import os
@@ -41,7 +39,7 @@ class NeuronalNetwork:
 
     # Class attributes (default values) and methodes
     SAVE_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("cnn", "model"))
-    NB_OUTPUTS_CLASSES = 63
+    NB_OUTPUT_CLASSES = 63
     DATABASE_DIR = "OCR_data"
     DATABASE_NAME = "ocr"
 
@@ -63,12 +61,13 @@ class NeuronalNetwork:
         return [ chr([ b for a,b in couples if a==index][0]) for index in index_list ]
 
     @staticmethod
-    def load_data(dirname=DATABASE_DIR, filename=DATABASE_NAME, nb_classes=NB_OUTPUTS_CLASSES):
+    def load_data(dirname=DATABASE_DIR, filename=DATABASE_NAME, nb_classes=NB_OUTPUT_CLASSES):
         """
         Returns a DataSet object loading from a database in MNIST format.
 
         :param dirname: a str, the directory containing the database files.
         :param filename: a str, the begining of the names of all files of the database.
+        :param nb_classes: an integer, the number of output classes
         :return: a DateSet
         """
         return datamanager.read_data_sets(train_dir = dirname,
@@ -80,7 +79,7 @@ class NeuronalNetwork:
                               one_hot=True)
 
     def __init__(self, learning_rate_or_save_filename=0.0001, hard_examples=False,
-            nb_output_classes=NB_OUTPUTS_CLASSES, save_filename=SAVE_FILE):
+            nb_output_classes=NB_OUTPUT_CLASSES, save_filename=SAVE_FILE):
         """
         Load the network saved in the given file if any
         or generate a network to train with given parameters.
@@ -277,10 +276,12 @@ class NeuronalNetwork:
 
     def guess(self, pictures):
         """
-        Return the list of characters corresponding to the characters
-        written on the pictures.
+        Use the neuronal net to recognize the characters on the input pictures.
 
         :param pictures: A set of 784 dimensions vectors (28x28 grayscale pictures).
+        :return: A tuple : (list of characters, list of "probabilities")
+        
+        :raise: ValueError if pictures is not a list
         """
         # check parameters
         if(not isinstance(pictures, list)):
@@ -301,11 +302,11 @@ class NeuronalNetwork:
         return (NeuronalNetwork.get_char_from_index_list(index_list), probability_list)
 
 if __name__ == "__main__":
-    data = NeuronalNetwork.load_data()
+    data = NeuronalNetwork.load_data("OCR_data_light")
     # Train the network
     # nn = NeuronalNetwork() # set up the network with default parameters
     # nn.train(data)
     # Test the result of the training
     # nn = NeuronalNetwork(NeuronalNetwork.SAVE_FILE)
-    # characters, _ = nn.guess([ data.test.images[i] for i in range(10) ])
+    # characters, _ = nn.guess([ data.test.images[i] for i in range(10, 63) ])
     # print(characters) # '0' to '9'

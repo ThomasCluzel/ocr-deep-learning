@@ -10,13 +10,17 @@ from tkinter import *
 from PIL import Image, ImageTk
 
 from imageconvert import isPictureFile
-# TODO: import Benoit's module
+from extractor import char_detector
+
 
 class Interface(Frame):
     """
     The thing to display
     """
     def __init__(self, window, width=800, height=600, **kwargs):
+        """
+        Sets up all the widgets in the window
+        """
         Frame.__init__(self, window, width=width, height=height, **kwargs)
         self.pack(fill=BOTH)
         # Create the frames
@@ -64,7 +68,6 @@ class Interface(Frame):
         self.imgtk = ImageTk.PhotoImage(img) # Warning: we must keep a reference on the PhotoImage otherwise it is destroyed and nothing is displayed
         self.canvas_img.itemconfig(self.img, image=self.imgtk)
 
-
     def convert(self):
         """
         This function is called when the user click the convert button.
@@ -97,11 +100,11 @@ def recognition(picture_filename):
     This function calls the other modules
     """
     out = ""
-    if(picture_filename is None or not isPictureFile(picture_filename)):
-        out = "Error: The file %s is no a picture" % picture_filename
+    try:
+        out = char_detector(picture_filename)
+    except IOError:
+        out = "Error: The file %s is not a picture" % picture_filename
         print(out, file=sys.stderr)
-    else:
-        out = "Use Benoit's function here" # TODO: when it's ready
     return out
 
 

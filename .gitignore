@@ -1,11 +1,12 @@
 # folders
 cnn*/*
-*_data/*
+*data*
 env/*
 __pycache__/*
-.py*
-.vscode/
+.*
 
 # files other than code
 *.jpg
+*.jpeg
+*.png
 *.ico
