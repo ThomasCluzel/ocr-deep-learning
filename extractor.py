@@ -186,7 +186,7 @@ def stretching(img):
     return newimg
 
 
-def saveChars(charTab, name, image):
+def saveChars(charTab, name, image): # TODO: remove this function from this file
     """
     Saves the points of interest in a folder
 
@@ -229,7 +229,8 @@ def char_detector(img_filename):
         image = Image.open(img_filename).convert("L")
     except IOError:
         raise IOError("Incorrect filename: %s is not a picture" % img_filename)
-    img = stretching(image)
+    image = stretching(image) # keep the original image stretched
+    img = image.copy()
     threshold(img)
     charTab = detectingChars(img)
     charTab.sort()
@@ -250,7 +251,7 @@ def char_detector(img_filename):
 
 
 if __name__ == "__main__":
-	if(len(sys.argv) >= 2):
-		char_detector(sys.argv[1])
-	else:
-		print("Gimme a picture in first param, pls", file=sys.stderr)
+    if(len(sys.argv) >= 2):
+        char_detector(sys.argv[1])
+    else:
+        print("Gimme a picture as first param, please", file=sys.stderr)

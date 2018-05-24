@@ -228,7 +228,7 @@ def read_data_sets(train_dir="EMNIST_data",
 if __name__ == "__main__":
     # View the data
     from imageconvert import view_vector_as_picture
-    data = read_data_sets(train_dir = "OCR_data",
+    data = read_data_sets(train_dir = "OCR_data_v2",
                             train_images = 'ocr-train-images-idx3-ubyte.gz',
                             train_labels = 'ocr-train-labels-idx1-ubyte.gz',
                             test_images = 'ocr-test-images-idx3-ubyte.gz',

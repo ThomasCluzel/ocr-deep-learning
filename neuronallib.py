@@ -20,7 +20,7 @@ import time
 import numpy as np
 import tensorflow as tf
 
-import datamanager
+from datamanager import read_data_sets
 
 
 class NeuronalNetwork:
@@ -39,9 +39,12 @@ class NeuronalNetwork:
 
     # Class attributes (default values) and methodes
     SAVE_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("cnn", "model"))
-    NB_OUTPUT_CLASSES = 63
-    DATABASE_DIR = "OCR_data"
+    NB_OUTPUT_CLASSES = 63           # for Optical Character Recognition
+    DATABASE_DIR = "OCR_data_v2"
     DATABASE_NAME = "ocr"
+    # NB_OUTPUT_CLASSES = 10          # for handwritten digits
+    # DATABASE_DIR = "EMNIST_data"
+    # DATABASE_NAME = "emnist-mnist"
 
     @staticmethod
     def get_char_from_index_list(index_list, dirname=DATABASE_DIR, filename=DATABASE_NAME):
@@ -70,7 +73,7 @@ class NeuronalNetwork:
         :param nb_classes: an integer, the number of output classes
         :return: a DateSet
         """
-        return datamanager.read_data_sets(train_dir = dirname,
+        return read_data_sets(train_dir = dirname,
                               train_images = filename+'-train-images-idx3-ubyte.gz',
                               train_labels = filename+'-train-labels-idx1-ubyte.gz',
                               test_images = filename+'-test-images-idx3-ubyte.gz',
@@ -274,11 +277,13 @@ class NeuronalNetwork:
             print("Model saved to:", self._saver.save(sess, self._save_filename+"-last"))
             print("Executed in: %.2f seconds"%(time.time() - start_time))
 
-    def guess(self, pictures):
+    def guess(self, pictures, dirname=DATABASE_DIR, filename=DATABASE_NAME):
         """
         Use the neuronal net to recognize the characters on the input pictures.
 
-        :param pictures: A set of 784 dimensions vectors (28x28 grayscale pictures).
+        :param pictures: A set (list) of 784 dimensions vectors (28x28 grayscale pictures).
+        :param dirname: a str, the directory containing the mapping file.
+        :param filename: a str, the prefixe of the mapping file (e.g: "ocr" in "ocr-mapping.txt")
         :return: A tuple : (list of characters, list of "probabilities")
         
         :raise: ValueError if pictures is not a list
@@ -299,10 +304,10 @@ class NeuronalNetwork:
             self._saver.restore(sess, self._save_filename+"-last")
             index_list = y_output.eval(feed_dict={x: pictures, keep_prob: 1})
             probability_list = probability_output.eval(feed_dict={x: pictures, keep_prob: 1})
-        return (NeuronalNetwork.get_char_from_index_list(index_list), probability_list)
+        return (NeuronalNetwork.get_char_from_index_list(index_list,dirname,filename), probability_list)
 
 if __name__ == "__main__":
-    data = NeuronalNetwork.load_data("OCR_data_light")
+    data = NeuronalNetwork.load_data()
     # Train the network
     # nn = NeuronalNetwork() # set up the network with default parameters
     # nn.train(data)
