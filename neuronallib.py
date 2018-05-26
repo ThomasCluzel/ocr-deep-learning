@@ -38,7 +38,10 @@ class NeuronalNetwork:
     """
 
     # Class attributes (default values) and methodes
+    INPUTS_WIDTH, INPUTS_HEIGHT = 28, 28
+    INPUT_VECTOR_SIZE = INPUTS_WIDTH * INPUTS_HEIGHT
     SAVE_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("cnn", "model"))
+    SUMMARY_DIR = "summary" # directory for TensorBoard
     NB_OUTPUT_CLASSES = 63           # for Optical Character Recognition
     DATABASE_DIR = "OCR_data_v2"
     DATABASE_NAME = "ocr"
@@ -135,13 +138,14 @@ class NeuronalNetwork:
         self._graph.as_default()
         # inputs of the graph
         with tf.variable_scope("Inputs", reuse=tf.AUTO_REUSE):
-            x = tf.placeholder(tf.float32, [None, 784]) # 28x28 = 784
-            y_ = tf.placeholder(tf.float32, [None, self._nb_output_classes])
+            x = tf.placeholder(tf.float32, [None, NeuronalNetwork.INPUT_VECTOR_SIZE], name="vectorized_pictures")
+            y_ = tf.placeholder(tf.float32, [None, self._nb_output_classes], name="correct_labels")
+            keep_prob = tf.placeholder(tf.float32, name="keep_prob_dropout") # Also an input: probability of not dropping out
         # the first hidden/convolutional layer
         with tf.variable_scope("First_layer", reuse=tf.AUTO_REUSE):
             W_conv1 = weight_variable([5, 5, 1, 32])
             b_conv1 = bias_variable([32])
-            x_image = tf.reshape(x, [-1, 28, 28, 1])
+            x_image = tf.reshape(x, [-1, NeuronalNetwork.INPUTS_WIDTH, NeuronalNetwork.INPUTS_HEIGHT, 1])
             h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
             h_pool1 = max_pool_2x2(h_conv1)
         # the second hidden/convolutional layer
@@ -158,7 +162,6 @@ class NeuronalNetwork:
             h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
         # dropout to avoid overfitting
         with tf.variable_scope("Dropout", reuse=tf.AUTO_REUSE):
-            keep_prob = tf.placeholder(tf.float32)
             h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
         # last layer
         with tf.variable_scope("Last_layer", reuse=tf.AUTO_REUSE):
@@ -167,6 +170,8 @@ class NeuronalNetwork:
             y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
             y_output = tf.argmax(y_conv, 1)
             probability_output = tf.reduce_max(tf.nn.softmax(y_conv), axis=[1])
+            tf.summary.histogram("class_output", y_output) # for TensorBoard
+            tf.summary.histogram("probability_output", probability_output) # How sure of its answer is the net?
         # add placeholders and output to the collection to have access to
         # them later when guess numbers
         graph = tf.get_default_graph()
@@ -179,11 +184,7 @@ class NeuronalNetwork:
 
     def _load(self):
         """
-        Load a network saved in the file self._save_filename.
-
-        :param save_filename: The name of the file containing the saved
-            network to load.
-        :type save_filename: str
+        Load a network saved from the file self._save_filename.
         """
         self._saver = tf.train.import_meta_graph(self._save_filename + "-last.meta")
     
@@ -195,7 +196,6 @@ class NeuronalNetwork:
         :param hard_examples: A boolean, true if the algorithm must show again the \
             pictures where the recognition failed
         """
-        #check the graph has no training part
         self._graph.as_default()
         # get useful tensors
         x = tf.get_collection("x")[0]
@@ -203,15 +203,17 @@ class NeuronalNetwork:
         y_conv = tf.get_collection("y_conv")[0]
         # loss function
         with tf.variable_scope("Loss", reuse=tf.AUTO_REUSE):
-            cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=y_conv, labels=y_))
+            cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=y_conv, labels=y_, name="cross_entropy"))
+            tf.summary.scalar("loss", cross_entropy)
         # optimizer
         with tf.variable_scope("Optimizer", reuse=tf.AUTO_REUSE):
             optimizer = tf.train.AdamOptimizer(learning_rate)
-            train_step = optimizer.minimize(cross_entropy)
+            train_step = optimizer.minimize(cross_entropy, name="train_step")
         # evaluation
         with tf.variable_scope("Evaluation", reuse=tf.AUTO_REUSE):
-            is_correct = tf.equal(tf.argmax(y_, 1), tf.argmax(y_conv, 1))
-            accuracy = tf.reduce_mean(tf.cast(is_correct, tf.float32))
+            is_correct = tf.equal(tf.argmax(y_, 1), tf.argmax(y_conv, 1), name="is_correct")
+            accuracy = tf.reduce_mean(tf.cast(is_correct, tf.float32), name="accuracy_tensor")
+            tf.summary.scalar("accuracy", accuracy)
         if(hard_examples):
             with tf.variable_scope("Hardest_examples", reuse=tf.AUTO_REUSE):
                 hard_index = tf.reshape(tf.where(tf.logical_not(is_correct)), [-1])
@@ -224,6 +226,10 @@ class NeuronalNetwork:
         if(hard_examples):
             graph.add_to_collection("hard_x", hard_x)
             graph.add_to_collection("hard_y_", hard_y_)
+        
+        # initialize the summary for TensorBoard to visualize the learning
+        summaries_merged = tf.summary.merge_all() # all the summaries merged together
+        graph.add_to_collection("summaries_merged", summaries_merged)
 
         # initialize the network to save it
         init = tf.global_variables_initializer()
@@ -233,7 +239,7 @@ class NeuronalNetwork:
             saver.save(sess, self._save_filename+"-last")
         self._saver = saver
     
-    def train(self, data, nb_iterations=10000, report_step=100, batch_size=100):
+    def train(self, data, nb_iterations=10000, report_step=500, batch_size=100, summary_dir=SUMMARY_DIR):
         """
         Train the network with the given data and save it.
 
@@ -241,10 +247,12 @@ class NeuronalNetwork:
         :param nb_iterations: The number of batch to use for the training session.
         :param report_step: Run an evaluation of the accuracy each `report_step` batch.
         :param batch_size: The number of pictures in a batch.
+        :param summary_dir: the path to the dictory in which write the report on the learning.
         """
         # check params
         if(data is None):
             raise RuntimeError("Error: You did not specify data to train the network with.")
+        self._graph.as_default()
         # get useful tensors
         x = tf.get_collection("x")[0]
         y_ = tf.get_collection("y_")[0]
@@ -255,9 +263,16 @@ class NeuronalNetwork:
         if(hard_examples):
             hard_x = tf.get_collection("hard_x")[0]
             hard_y_ = tf.get_collection("hard_y_")[0]
+        # get the summary tensor for TensorBoard
+        summaries_merged = tf.get_collection("summaries_merged")[0]
+        # initialize summary writers
+        train_writer = tf.summary.FileWriter(os.path.join(summary_dir, "train"))
+        test_writer = tf.summary.FileWriter(os.path.join(summary_dir, "test"))
         # Train the network in a session
         with tf.Session() as sess:
             self._saver.restore(sess, self._save_filename+"-last")
+            train_writer.add_graph(sess.graph)
+            test_writer.add_graph(sess.graph)
             print("Training started")
             start_time = time.time()
             for i in range(nb_iterations):
@@ -268,13 +283,17 @@ class NeuronalNetwork:
                     hard_batch_y_ = hard_y_.eval(feed_dict={x: batch_x, y_: batch_y_, keep_prob: 1})
                     train_step.run(feed_dict={x: hard_batch_x, y_: hard_batch_y_, keep_prob: 0.5})
                 if(i%report_step == 0):
-                    train_accuracy = accuracy.eval(feed_dict={x: batch_x, y_: batch_y_, keep_prob: 1})
+                    summary, train_accuracy = sess.run([summaries_merged, accuracy], feed_dict={x: batch_x, y_: batch_y_, keep_prob: 1})
+                    train_writer.add_summary(summary, i)
                     print("step %d : accuracy = %g" % (i, train_accuracy))
                     self._saver.save(sess, self._save_filename, global_step=i)
             # evaluation
-            print("Training completed, evaluation...")
-            print("Last accuracy =", accuracy.eval(feed_dict={x: data.test.images, y_: data.test.labels, keep_prob: 1}))
+            print("Training completed, evaluation...") # this time we make the evaluation with the test pictures
+            summary, test_accuracy = sess.run([summaries_merged, accuracy], feed_dict={x: data.test.images, y_: data.test.labels, keep_prob: 1})
+            test_writer.add_summary(summary, nb_iterations)
+            print("Last accuracy =", test_accuracy)
             print("Model saved to:", self._saver.save(sess, self._save_filename+"-last"))
+            print("To see the summary use: tensorboard --logdir=", summary_dir, sep="")
             print("Executed in: %.2f seconds"%(time.time() - start_time))
 
     def guess(self, pictures, dirname=DATABASE_DIR, filename=DATABASE_NAME):
@@ -313,5 +332,5 @@ if __name__ == "__main__":
     # nn.train(data)
     # Test the result of the training
     # nn = NeuronalNetwork(NeuronalNetwork.SAVE_FILE)
-    # characters, _ = nn.guess([ data.test.images[i] for i in range(10, 63) ])
-    # print(characters) # '0' to '9'
+    # characters, _ = nn.guess([ data.test.images[i] for i in range(63) ])
+    # print(characters)
