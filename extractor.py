@@ -229,25 +229,25 @@ def char_detector(img_filename):
         image = Image.open(img_filename).convert("L")
     except IOError:
         raise IOError("Incorrect filename: %s is not a picture" % img_filename)
-    image = stretching(image) # keep the original image stretched
-    img = image.copy()
+    img = stretching(image)
     threshold(img)
     charTab = detectingChars(img)
     charTab.sort()
     nn = NeuronalNetwork(NeuronalNetwork.SAVE_FILE)
     # TODO: refactor because it is definitly too long
+    result = ""
     chars = "" # the text on the picture
+    vectorTab = [picture2vector(i.slicing(image)) for i in charTab]
+    chars,_ = nn.guess(vectorTab)
+    j = 0;
     for i in range(0, len(charTab)-1):
-        cropped = charTab[i].slicing(image) # crop the image
-        vect = picture2vector(cropped)
-        character, _ = nn.guess([vect]) # try to recognize the character on
-        chars += character[0] # append the character to text
-        chars += charTab[i].space_invader(charTab[i+1]) # append a space if necessary
-    # saveChars(charTab, img_filename, image) # just for debug purpose
+        result += chars[i] # append the character to text
+        result += charTab[i].space_invader(charTab[i+1]) # append a space if necessary
+    #saveChars(charTab, img_filename, image) # just for debug purpose
     # print(chars) # also for debug
     image.close()
     img.close()
-    return chars
+    return result
 
 
 if __name__ == "__main__":
