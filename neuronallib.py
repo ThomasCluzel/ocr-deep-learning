@@ -9,8 +9,11 @@ to guess characters written on 28x28 pixels pictures.
 
 Use (example):
 from neuronallib import NeuronalNetwork
+from imageconvert import picture2vector
 nn = NeuronalNetwork(NeuronalNetwork.SAVE_FILE)
+pictures = [ picture2vector(img1), picture2vector(img2) ] # img1.size == (28,28)
 characters, probabilities = nn.guess(pictures)
+"".join(characters)
 """
 
 
@@ -37,15 +40,15 @@ class NeuronalNetwork:
         - self._nb_output_classes: int, th number of output classes (number of elements recognisable)
     """
 
-    # Class attributes (default values) and methodes
+    # Class attributes (default values)
     INPUTS_WIDTH, INPUTS_HEIGHT = 28, 28
     INPUT_VECTOR_SIZE = INPUTS_WIDTH * INPUTS_HEIGHT
     SAVE_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("cnn", "model"))
     SUMMARY_DIR = "summary" # directory for TensorBoard
-    NB_OUTPUT_CLASSES = 63           # for Optical Character Recognition
-    DATABASE_DIR = "OCR_data_v2"
-    DATABASE_NAME = "ocr"
-    # NB_OUTPUT_CLASSES = 10          # for handwritten digits
+    NB_OUTPUT_CLASSES = 63          # for Optical Character Recognition
+    DATABASE_DIR = "OCR_data_v3"       # directory of the database
+    DATABASE_NAME = "ocr"              # prefixe of filenames of the database (e.g.: "ocr" in "ocr-train-images-idx3-ubyte.gz")
+    # NB_OUTPUT_CLASSES = 10         # for handwritten digits
     # DATABASE_DIR = "EMNIST_data"
     # DATABASE_NAME = "emnist-mnist"
 
@@ -329,7 +332,7 @@ if __name__ == "__main__":
     data = NeuronalNetwork.load_data()
     # Train the network
     # nn = NeuronalNetwork() # set up the network with default parameters
-    # nn.train(data)
+    # nn.train(data, report_step=1000)
     # Test the result of the training
     # nn = NeuronalNetwork(NeuronalNetwork.SAVE_FILE)
     # characters, _ = nn.guess([ data.test.images[i] for i in range(63) ])

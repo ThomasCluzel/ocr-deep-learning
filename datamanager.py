@@ -228,14 +228,14 @@ def read_data_sets(train_dir="EMNIST_data",
 if __name__ == "__main__":
     # View the data
     from imageconvert import view_vector_as_picture
-    data = read_data_sets(train_dir = "OCR_data_v2",
+    data = read_data_sets(train_dir = "OCR_data_v3",
                             train_images = 'ocr-train-images-idx3-ubyte.gz',
                             train_labels = 'ocr-train-labels-idx1-ubyte.gz',
                             test_images = 'ocr-test-images-idx3-ubyte.gz',
                             test_labels = 'ocr-test-labels-idx1-ubyte.gz',
                             num_classes = 63,
                             one_hot=True)
-    for i in range(3):
+    for i in range(62, 129):
         print("i=", i, " index=", data.train.labels[i].tolist().index(1))
         view_vector_as_picture(data.train.images[i])
         
