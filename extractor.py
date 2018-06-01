@@ -102,7 +102,6 @@ class Slicer:
             a string which contains a space, a \n or nothing
         """
         ret = ""
-        # print("{} {}".format(slicer2.iMin-self.iMax, self.iMax-self.iMin)) # debug, remove later
         if(abs(self.jMin-slicer2.jMin) > 15):
             ret = "\n"
         elif((slicer2.iMin-self.iMax) > (self.iMax-self.iMin)):
@@ -113,10 +112,7 @@ class Slicer:
         """
         Redefinition of the Slicer's string representation 
         """
-        return "{} {} {} {}".format(self.iMin,
-                                self.iMax,
-                                self.jMin,
-                                self.jMax)
+        return "{} {} {} {}".format(self.iMin, self.iMax, self.jMin, self.jMax)
 
 
 def threshold(image, value=128):
@@ -137,7 +133,7 @@ def threshold(image, value=128):
                     pixel_access[i, j] = 255
 
 
-def detectingChars(image):
+def detecting_chars(image):
     """
     Function which detects the chars in the image
     and generates a list of Slicers objects
@@ -186,7 +182,7 @@ def stretching(img):
     return newimg
 
 
-def saveChars(charTab, name, image): # TODO: remove this function from this file
+def save_chars(charTab, name, image): # TODO: remove this function from this file (move it to test_extractor.py)
     """
     Saves the points of interest in a folder
 
@@ -231,20 +227,17 @@ def char_detector(img_filename):
         raise IOError("Incorrect filename: %s is not a picture" % img_filename)
     img = stretching(image)
     threshold(img)
-    charTab = detectingChars(img)
+    charTab = detecting_chars(img)
     charTab.sort()
     nn = NeuronalNetwork(NeuronalNetwork.SAVE_FILE)
-    # TODO: refactor because it is definitly too long
     result = ""
-    chars = "" # the text on the picture
+    chars = "" # the text on the picture without space
     vectorTab = [picture2vector(i.slicing(image)) for i in charTab]
-    chars,_ = nn.guess(vectorTab)
-    j = 0;
-    for i in range(0, len(charTab)-1):
+    chars,_ = nn.guess(vectorTab) # use the nn to turn pictures into characters
+    for i in range(len(charTab)-1):
         result += chars[i] # append the character to text
         result += charTab[i].space_invader(charTab[i+1]) # append a space if necessary
-    #saveChars(charTab, img_filename, image) # just for debug purpose
-    # print(chars) # also for debug
+    result += chars[len(chars)-1] # don't forget the last one
     image.close()
     img.close()
     return result

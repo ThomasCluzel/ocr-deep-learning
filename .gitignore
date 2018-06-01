@@ -3,7 +3,7 @@ cnn*/*
 *data*
 env/*
 __pycache__/*
-summary/*
+summary*/*
 .*
 
 # files other than code
