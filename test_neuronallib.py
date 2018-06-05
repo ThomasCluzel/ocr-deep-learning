@@ -39,7 +39,7 @@ class TestNeuronalNetwork:
         """
         self.tmp_cnn_dir_name = "tmp"
         os.mkdir(self.tmp_cnn_dir_name)
-        self.data = NeuronalNetwork.load_data("OCR_data", "ocr", 63)
+        self.data = NeuronalNetwork.load_data("OCR_data_v2", "ocr", 63)
 
     def teardown_class(self):
         """
@@ -66,7 +66,7 @@ class TestNeuronalNetwork:
         nn = NeuronalNetwork(os.path.join(self.tmp_cnn_dir_name, "model"))
         assert nn is not None
 
-    # TODO : really train a network before using this function
+    # really train a network before using this function
     def test_network_usage(self):
         # assuming loading is not bugged
         nn = NeuronalNetwork(os.path.join(self.tmp_cnn_dir_name, "model"))
@@ -78,4 +78,4 @@ class TestNeuronalNetwork:
         numbers, prob = nn.guess(picts)
         rate = sum(list(map(lambda x, y: x==y and 1 or 0, numbers, correct))) / nb_test
         print("Correct rate (%d tries) is: %f" % (nb_test, rate), "\n  Nums  ==>", numbers, "\n  Prob  ==>", prob.round(2))
-        # TODO : add an assertion with the rate ?
+        assert rate > 0.5

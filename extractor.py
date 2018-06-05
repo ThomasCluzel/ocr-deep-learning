@@ -2,7 +2,6 @@
 
 import sys
 import os
-import math
 from PIL import Image
 
 from imageconvert import picture2vector
@@ -100,9 +99,10 @@ class Slicer:
             a string which contains a space, a \n or nothing
         """
         ret = ""
-        if(abs(self.jMin-slicer2.jMin) > 15):
+        max_width = max((self.iMax - self.iMin), (slicer2.iMax - slicer2.iMin))
+        if(self.jMax < slicer2.jMin):
             ret = "\n"
-        elif((slicer2.iMin-self.iMax) > (self.iMax-self.iMin)):
+        elif((slicer2.iMin-self.iMax) > 0.7*max_width):
             ret = " "
         return ret
 
@@ -123,8 +123,8 @@ def threshold(image, value=128):
     """
     pixel_access = image.load()
     (width, height) = image.size
-    for i in range(0, width-1):
-            for j in range(0, height-1):
+    for i in range(width):
+            for j in range(height):
                 if pixel_access[i, j] < value:
                     pixel_access[i, j] = 0
                 else:
@@ -143,7 +143,7 @@ def detecting_chars(image):
         list which stores the Slicers objects
     """
     (width, height) = image.size
-    charTab = []
+    char_tab = []
     pixel_access = image.load()
     for i in range(0, width):
         for j in range(0, height):
@@ -152,8 +152,8 @@ def detecting_chars(image):
                 s = Slicer(i, j)
                 #we create a new Slicer and we expend it
                 s.expend(i, j, width, height, pixel_access)
-                charTab.append(s)
-    return charTab
+                char_tab.append(s)
+    return char_tab
 
 
 def stretching(img):
@@ -172,37 +172,12 @@ def stretching(img):
     pixel_access = img.load()
     (mini, maxi) = img.getextrema()
     #calculation of the stretching coeficient
-    coef = float(255)/float((max(maxi-mini, 1)))
-    for i in range(0, width):
-        for j in range(0, height):
+    coef = 255/max(maxi-mini, 1)
+    for i in range(width):
+        for j in range(height):
             #calculation of the new pixel's value
             newpixel_access[i, j] = int(coef*(pixel_access[i, j]-mini))
     return newimg
-
-
-def save_chars(charTab, name, image): # TODO: remove this function from this file (move it to test_extractor.py)
-    """
-    Saves the points of interest in a folder
-
-    Args:
-        charTab: list of Slicer object
-        name: name of the original image file (relative path)
-        image: the original image
-    Raises:
-        OSError: if the folder is already existing
-    """
-    newdir = os.path.abspath(os.path.join(os.getcwd(), name+"Sliced"))
-    try:
-        #creation of the folder
-        os.mkdir(newdir)
-        for i in range(0, len(charTab)):
-            r = charTab[i].slicing(image)
-            #save the character in the folder
-            r.save(os.path.abspath(os.path.join(newdir, "{}{}".format(i, name))))
-        print(newdir)
-    except OSError:
-        print("This folder already exists : {}".format(newdir), file=sys.stderr)
-	
 
 
 def char_detector(img_filename):
@@ -225,15 +200,15 @@ def char_detector(img_filename):
         raise IOError("Incorrect filename: %s is not a picture" % img_filename)
     img = stretching(image)
     threshold(img)
-    charTab = detecting_chars(img)
-    charTab.sort()
+    char_tab = detecting_chars(img)
+    char_tab.sort()
     nn = NeuronalNetwork(NeuronalNetwork.SAVE_FILE)
     result = ""
-    vectorTab = [picture2vector(i.slicing(image)) for i in charTab]
+    vectorTab = [picture2vector(i.slicing(image)) for i in char_tab]
     chars,_ = nn.guess(vectorTab) # use the nn to turn pictures into characters
-    for i in range(len(charTab)-1):
+    for i in range(len(char_tab)-1):
         result += chars[i] # append the character to text
-        result += charTab[i].space_invader(charTab[i+1]) # append a space if necessary
+        result += char_tab[i].space_invader(char_tab[i+1]) # append a space if necessary
     result += chars[len(chars)-1] + "\n" # don't forget the last one
     image.close()
     img.close()
