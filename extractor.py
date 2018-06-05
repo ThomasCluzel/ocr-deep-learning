@@ -34,7 +34,7 @@ class Slicer:
             width: height : size of the image
             p_a : current pixel access  
         """
-        if(i >= 0 and j >= 0 and i < width-1 and j < height-1 and p_a[i, j] == 0):
+        if(i >= 0 and j >= 0 and i < width and j < height and p_a[i, j] == 0):
             p_a[i, j] = 255
             if(i < self.iMin):
                 self.iMin = i
@@ -77,19 +77,17 @@ class Slicer:
         Returns:
             a size*size PIL image
         """
-        w = self.iMax-self.iMin
-        h = self.jMax-self.jMin
-        maxi = max(w, h, size)
+        w = self.iMax-self.iMin+1
+        h = self.jMax-self.jMin+1
+        maxi = max(w, h)
         #creation of the white result image
         result = Image.new("L", (maxi, maxi), 255)
         #crop the bounding box in the original image
-        image = image.crop((self.iMin, self.jMin, self.iMax+2, self.jMax+2))
+        image = image.crop((self.iMin, self.jMin, self.iMax+1, self.jMax+1))
         #paste the character in the result image
-        result.paste(image, (int(maxi/2 - w/2), int(maxi/2-h/2),
-                             int(maxi/2-w/2+w)+2, int(maxi/2-h/2+h)+2))
+        result.paste(image, ((maxi-w)//2, (maxi-h)//2))
         #resize the result image with the same proportion as in the original
-        result.thumbnail((size, size), Image.ANTIALIAS)
-        return result
+        return result.resize((size, size), Image.BICUBIC)
 
     def space_invader(self, slicer2):
         """
@@ -231,13 +229,12 @@ def char_detector(img_filename):
     charTab.sort()
     nn = NeuronalNetwork(NeuronalNetwork.SAVE_FILE)
     result = ""
-    chars = "" # the text on the picture without space
     vectorTab = [picture2vector(i.slicing(image)) for i in charTab]
     chars,_ = nn.guess(vectorTab) # use the nn to turn pictures into characters
     for i in range(len(charTab)-1):
         result += chars[i] # append the character to text
         result += charTab[i].space_invader(charTab[i+1]) # append a space if necessary
-    result += chars[len(chars)-1] # don't forget the last one
+    result += chars[len(chars)-1] + "\n" # don't forget the last one
     image.close()
     img.close()
     return result
@@ -245,6 +242,6 @@ def char_detector(img_filename):
 
 if __name__ == "__main__":
     if(len(sys.argv) >= 2):
-        char_detector(sys.argv[1])
+        print(char_detector(sys.argv[1]))
     else:
         print("Gimme a picture as first param, please", file=sys.stderr)
