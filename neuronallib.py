@@ -25,6 +25,7 @@ import tensorflow as tf
 
 from datamanager import read_data_sets
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # prevent info messages from being displayed
 
 class NeuronalNetwork:
     """
@@ -37,7 +38,7 @@ class NeuronalNetwork:
         - self._graph: tf.Graph, the network itself
         - self._saver: tf.train.Saver, the object to store the graph in files
         - self._save_filename: str, the name of the file (without extension) within the graph is saved
-        - self._nb_output_classes: int, th number of output classes (number of elements recognisable)
+        - self._nb_output_classes: int, the number of output classes (number of elements recognisable)
     """
 
     # Class attributes (default values)
@@ -46,7 +47,7 @@ class NeuronalNetwork:
     SAVE_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("cnn", "model"))
     SUMMARY_DIR = "summary" # directory for TensorBoard
     NB_OUTPUT_CLASSES = 63          # for Optical Character Recognition
-    DATABASE_DIR = "OCR_data_v3"       # directory of the database
+    DATABASE_DIR = "OCR_data_v4"       # directory of the database
     DATABASE_NAME = "ocr"              # prefixe of filenames of the database (e.g.: "ocr" in "ocr-train-images-idx3-ubyte.gz")
     # NB_OUTPUT_CLASSES = 10         # for handwritten digits
     # DATABASE_DIR = "EMNIST_data"
@@ -103,6 +104,7 @@ class NeuronalNetwork:
             In the second case: a str, the name of the file containing the saved network to load.
         :param hard_examples: only in the first case: a boolean, True if the network
             shall use the hard examples learning method
+        :param nb_output_classes: only in the first case: an int, the number of output classes
         :param save_filename: only in the first case: a str, the path to save the network.
         """
         # create or load ?
@@ -171,6 +173,7 @@ class NeuronalNetwork:
             W_fc2 = weight_variable([1024, self._nb_output_classes])
             b_fc2 = bias_variable([self._nb_output_classes])
             y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
+        with tf.variable_scope("Outputs", reuse=tf.AUTO_REUSE):
             y_output = tf.argmax(y_conv, 1)
             probability_output = tf.reduce_max(tf.nn.softmax(y_conv), axis=[1])
             tf.summary.histogram("class_output", y_output) # for TensorBoard

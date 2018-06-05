@@ -5,6 +5,8 @@ env/*
 __pycache__/*
 summary*/*
 .*
+*old*
+*Old*
 
 # files other than code
 *.jpg
