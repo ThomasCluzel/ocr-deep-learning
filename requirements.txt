@@ -7,7 +7,7 @@ html5lib==0.9999999
 Markdown==2.6.11
 numpy==1.14.1
 Pillow>=7.1.0
-protobuf==3.5.1
+protobuf==3.18.3
 six==1.11.0
 tensorboard>=1.6.0
 tensorflow>=1.7.1
